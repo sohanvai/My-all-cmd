@@ -22,6 +22,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
   const link = `${await baseApiUrl()}/baby`;
   const dipto = args.join(" ").toLowerCase();
   const uid = event.senderID;
+  let command, comd, final;
 
   try {
     if (!args[0]) {
@@ -79,25 +80,26 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     }
 
     if (args[0] === "teach" && args[1] !== "amar" && args[1] !== "react") {
-      const [comd, command] = dipto.split(/\s*-\s*/);
-      const final = comd.replace("teach ", "");
+      [comd, command] = dipto.split(/\s*-\s*/);
+      final = comd.replace("teach ", "");
       if (!command || command.length < 2) return api.sendMessage("❌ | Invalid format!", event.threadID, event.messageID);
       const re = await axios.get(`${link}?teach=${final}&reply=${command}&senderID=${uid}&threadID=${event.threadID}`);
       const tex = re.data.message;
-      return api.sendMessage(`✅ Replies added ${tex}\nTeachs: ${re.data.teachs}`, event.threadID, event.messageID);
+      const teacher = (await usersData.get(re.data.teacher)).name;
+      return api.sendMessage(`✅ Replies added ${tex}\nTeacher: ${teacher}\nTeachs: ${re.data.teachs}`, event.threadID, event.messageID);
     }
 
     if (args[0] === "teach" && args[1] === "amar") {
-      const [comd, command] = dipto.split(/\s*-\s*/);
-      const final = comd.replace("teach ", "");
+      [comd, command] = dipto.split(/\s*-\s*/);
+      final = comd.replace("teach ", "");
       if (!command || command.length < 2) return api.sendMessage("❌ | Invalid format!", event.threadID, event.messageID);
       const tex = (await axios.get(`${link}?teach=${final}&senderID=${uid}&reply=${command}&key=intro`)).data.message;
       return api.sendMessage(`✅ Replies added ${tex}`, event.threadID, event.messageID);
     }
 
     if (args[0] === "teach" && args[1] === "react") {
-      const [comd, command] = dipto.split(/\s*-\s*/);
-      const final = comd.replace("teach react ", "");
+      [comd, command] = dipto.split(/\s*-\s*/);
+      final = comd.replace("teach react ", "");
       if (!command || command.length < 2) return api.sendMessage("❌ | Invalid format!", event.threadID, event.messageID);
       const tex = (await axios.get(`${link}?teach=${final}&react=${command}`)).data.message;
       return api.sendMessage(`✅ Replies added ${tex}`, event.threadID, event.messageID);
@@ -109,63 +111,107 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     }
 
     const d = (await axios.get(`${link}?text=${dipto}&senderID=${uid}`)).data.reply;
-    api.sendMessage(d, event.threadID, event.messageID);
-
+    api.sendMessage(d, event.threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: event.senderID,
+        d,
+        apiUrl: link
+      });
+    }, event.messageID);
   } catch (e) {
     console.log(e);
     api.sendMessage("Check console for error", event.threadID, event.messageID);
   }
 };
 
-module.exports.onReply = async ({ api, event }) => {
+module.exports.onReply = async ({ api, event, Reply }) => {
   try {
-    const text = event.body || event.messageReply?.body || event.messageReply?.text;
-    if (!text) return;
-    const apiUrl = await baseApiUrl();
-    const response = (await axios.get(`${apiUrl}/baby?text=${encodeURIComponent(text.toLowerCase())}&senderID=${event.senderID}`)).data.reply;
-    await api.sendMessage(response, event.threadID, event.messageID);
+    if (event.type === "message_reply") {
+      const a = (
+        await axios.get(
+          `${await baseApiUrl()}/baby?text=${encodeURIComponent(event.body?.toLowerCase())}&senderID=${event.senderID}`
+        )
+      ).data.reply;
+      await api.sendMessage(a, event.threadID, (error, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          type: "reply",
+          messageID: info.messageID,
+          author: event.senderID,
+          a
+        });
+      }, event.messageID);
+    }
   } catch (err) {
-    console.log(err);
     return api.sendMessage(`Error: ${err.message}`, event.threadID, event.messageID);
   }
 };
 
-module.exports.onChat = async ({ api, event }) => {
+module.exports.onChat = async ({ api, event, message, usersData }) => {
   try {
     const body = event.body ? event.body.toLowerCase() : "";
     if (body.startsWith("baby") || body.startsWith("bby") || body.startsWith("bot") || body.startsWith("jan") || body.startsWith("babu") || body.startsWith("janu")) {
       const arr = body.replace(/^\S+\s*/, "");
       const randomReplies = [
-        "Ki koro? Amar din ektu bright hoye gelo tomar message e 😏",
-        "Tumi keno eto mishti hoy? Mon ta pura melt hocche 🫠",
-        "Ami ekdom ready… tumi bollei shuru 😎",
-        "Tomar kotha shune amar mood off the chart hoye gelo 🔥",
-        "Kemon lagche tomar din? Bujhte parchi tumi amar dike secretly smile korcho 😌",
-        "Ami toh excited, tumi shuru koro jan 😜",
-        "Tomar smile er magic e amar control khoye jachhe 😍",
-        "Ekta question… ami ki tomar mind e bar bar ashi? 😉",
-        "Tomar message ashlei pura smile automatic on hoye jai 😚",
-        "Flirt korle ami pura har mane jai… r moja o pai 😇",
-        "Oii, tomar kotha gulo pura priyo lagche 🔥",
-        "Tumi samne thakle ami wink dite dite bolbo ‘miss korchi’ 😉",
-        "Keno eto attractive? Amar toh mood totally spoil 😅",
-        "Tomar text porlei mone hoy ekta romantic scene cholche 🎬❤️",
-        "Ami soft, tumi flirt korle pura pani hoye jabo 🫠",
-        "Kire kichu bolba naki offline jabo 😉",
-        "Notun energy pailam, thanks tumi 😎"
+        "Tumi eto hot keno? Text e o ami pura melt hoye jai 🔥😉",
+        "Bolo na jaan, inbox e guta dao 😏",
+        "Tomar message dekhlam… ekhono heart beat ta komeni 😘",
+        "Shudhu text na, ekta voice note dile toh full prem e pore jabo 🎧❤️",
+        "Bujhte parchi, tumi amar dike secretly attract hoye gachho 😌",
+        "Ami toh ready, tumi bollei kazi office e jabo jan 😜",
+        "Tumi je smile dao message e, seta amar control-er baire 😍",
+        "Ekta kotha bolo — ami ki tomar mind e bar bar ashi? 😉",
+        "Tomar text ashlei amar lips e auto-smile on hoye jai 😚",
+        "Tumi flirt korlei ami har mane jai… r moja o pai 😇",
+        "Oii baby, tomar kotha gulo puro priyo manusher feel dey 😏🔥",
+        "Tumi jodi samne thakte, ami ekta wink dite dite boltam ‘miss korchi’ 😉😉",
+        "Keno tumi eto attractive? Amar toh মানসিক অবস্থা নষ্ট 😂",
+        "Tomar text porlei mone hoy ekta romantic movie’r scene cholche 🎬❤️",
+        "Ami toh soft, tumi flirt korle pura pani hoye jabo 🫠",
+        "kire kichu bolba? naki offline jabo 😉😉",
+        "sohan baby amake kotha bola sikhiyeche 🫠",
       ];
+
+      const name = await usersData.getName(event.senderID);
+      const mentionTag = {
+        tag: name,
+        id: event.senderID
+      };
 
       if (!arr) {
         const reply = randomReplies[Math.floor(Math.random() * randomReplies.length)];
-        return api.sendMessage(reply, event.threadID, event.messageID);
+        return api.sendMessage({
+          body: `@${name} ${reply}`,
+          mentions: [mentionTag]
+        }, event.threadID, (error, info) => {
+          if (!info) return message.reply("info obj not found");
+          global.GoatBot.onReply.set(info.messageID, {
+            commandName: this.config.name,
+            type: "reply",
+            messageID: info.messageID,
+            author: event.senderID
+          });
+        }, event.messageID);
       }
 
-      const apiUrl = await baseApiUrl();
-      const a = (await axios.get(`${apiUrl}/baby?text=${encodeURIComponent(arr)}&senderID=${event.senderID}`)).data.reply;
-      await api.sendMessage(a, event.threadID, event.messageID);
+      const a = (await axios.get(`${await baseApiUrl()}/baby?text=${encodeURIComponent(arr)}&senderID=${event.senderID}`)).data.reply;
+      await api.sendMessage({
+        body: `@${name} ${a}`,
+        mentions: [mentionTag]
+      }, event.threadID, (error, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          type: "reply",
+          messageID: info.messageID,
+          author: event.senderID,
+          a
+        });
+      }, event.messageID);
     }
   } catch (err) {
-    console.log(err);
     return api.sendMessage(`Error: ${err.message}`, event.threadID, event.messageID);
   }
 };
